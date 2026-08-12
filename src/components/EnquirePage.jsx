@@ -2,8 +2,14 @@ import { useState } from 'react';
 import { currency0, number } from '../utils/formatters.js';
 import { downloadSummaryPdf } from '../services/summaryPdf.js';
 
-/** Replace with your Formspree form URL after creating the form. */
-const FORMSPREE_ENDPOINT = 'https://formspree.io/f/myegwvrw';
+const WEB3FORMS_ENDPOINT = 'https://api.web3forms.com/submit';
+
+/**
+ * Identifies the form to Web3Forms. Public by design — it travels in the
+ * request body from the browser, exactly as the Formspree endpoint it replaced
+ * did, and grants nothing beyond submitting to this one form.
+ */
+const WEB3FORMS_ACCESS_KEY = '74b058b2-25b6-4400-b825-29d993a83474';
 
 const TOPICS = [
   'Understanding my solar estimate',
@@ -94,22 +100,29 @@ export default function EnquirePage({ adviceContext, onBack }) {
         .map(([label, value]) => `${label}: ${value}`)
         .join('\n');
 
-      const res = await fetch(FORMSPREE_ENDPOINT, {
+      const res = await fetch(WEB3FORMS_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
+          access_key: WEB3FORMS_ACCESS_KEY,
           name: form.name.trim(),
           email: form.email.trim(),
           phone: form.phone.trim() || undefined,
           postcode: form.postcode.trim(),
           topic: form.topic,
           message: form.message.trim() || undefined,
-          _subject: `WattShift advice enquiry — ${form.topic}`,
+          subject: `WattShift advice enquiry — ${form.topic}`,
           estimateSummary: estimateSummary || undefined,
         }),
       });
 
-      if (!res.ok) throw new Error(`Submission failed (${res.status})`);
+      // Web3Forms can answer 200 with {success: false} — a rejected key or a
+      // spam block reads as a transport success, so the body decides whether
+      // the enquiry actually got through, not the status code alone.
+      const result = await res.json().catch(() => null);
+      if (!res.ok || !result?.success) {
+        throw new Error(result?.message || `Submission failed (${res.status})`);
+      }
       setState('done');
     } catch {
       setState('error');
