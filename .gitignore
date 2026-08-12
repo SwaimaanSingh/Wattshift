@@ -12,3 +12,6 @@ dist-ssr
 
 # Extracted text from real customer bills — never commit these.
 scripts/sample-text/
+
+.vercel
+.env*

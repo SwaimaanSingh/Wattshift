@@ -41,6 +41,13 @@ const ChartFallback = () => (
 );
 
 /**
+ * Pre-selects the enquiry form's topic when arriving from this page. The form
+ * resolves this onto its own matching option, so the two need not be identical
+ * strings — see TOPIC_ALIASES in EnquirePage.jsx.
+ */
+const ADVICE_TOPIC = 'Performance review of my existing system';
+
+/**
  * The Stage 2 results page.
  *
  * Handles both paths. With meter data every figure is calculated from the
@@ -59,6 +66,7 @@ export default function Stage2Results({
   onBack,
   onGetQuotes,
   onAdviceMetrics,
+  onTalkToEngineer,
 }) {
   console.log('[Stage2Results] received as props battery handoff', {
     hasBattery: (manualBatteryKwh ?? 0) > 0,
@@ -772,6 +780,26 @@ export default function Stage2Results({
             </button>
           </section>
         )}
+
+        {/* Section 7 — independent advice. Distinct from the quotes CTA above:
+            that hands off to installers, this is a paid-for opinion from an
+            engineer with no system to sell. */}
+        <section className="rounded-2xl border border-solar-200 bg-solar-50/60 p-5 text-center dark:border-solar-900 dark:bg-solar-900/15">
+          <h2 className="text-sm font-medium text-ink-800 dark:text-ink-100">
+            Want a professional assessment?
+          </h2>
+          <p className="mt-1 text-sm sm:text-xs text-ink-500 dark:text-ink-400">
+            You&apos;ve got the data — a CEC-accredited solar engineer can tell
+            you exactly what it means and what to do next.
+          </p>
+          <button
+            type="button"
+            onClick={() => onTalkToEngineer?.(ADVICE_TOPIC)}
+            className="btn-primary mt-3"
+          >
+            Get expert advice
+          </button>
+        </section>
       </div>
 
       <div className="mt-8">

@@ -1,5 +1,18 @@
+import { useEffect, useState } from 'react';
 import { monthYearLabel } from '../../services/existingSystemEstimate.js';
 import { number, shortDate } from '../../utils/formatters.js';
+
+/**
+ * Plausible range for a residential/small-commercial array.
+ *
+ * Outside it the downstream analysis stops meaning anything: a sub-1.5 kW
+ * figure makes the modelled generation so small that the daytime share
+ * collapses toward zero, and a 100 kW+ figure swamps the measured load so the
+ * usage pattern reads as if the site exports almost everything it makes.
+ */
+const MIN_SOLAR_KW = 1.5;
+const MAX_SOLAR_KW = 100;
+const SOLAR_RANGE_MESSAGE = `Please enter a system size between ${MIN_SOLAR_KW} kW and ${MAX_SOLAR_KW} kW`;
 
 /**
  * The headline call-out for a detected install partway through the file.
@@ -129,7 +142,7 @@ export function ExistingSystemInputs({
       </p>
 
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <NumberField
+        <SolarSizeField
           id="existing-solar-kw"
           label="Solar system size"
           suffix="kW"
@@ -194,6 +207,94 @@ export function ExistingSystemInputs({
           "A battery absorbs daytime surplus before it reaches the meter, so your real system may be larger than an export-based estimate suggests — entering your actual size fixes that."}
       </p>
     </section>
+  );
+}
+
+/**
+ * Solar size entry, range-checked.
+ *
+ * Kept separate from NumberField rather than adding options to it: the
+ * inverter and battery fields share that component, and buffering their input
+ * the way this one does would change their behaviour too.
+ *
+ * What the user types is held locally and only handed upstream once it is
+ * valid, so an out-of-range figure never reaches the analysis. The last good
+ * value stays in effect and the results on screen keep referring to it, rather
+ * than the page recalculating against 121 kW or blanking out mid-edit.
+ *
+ * An empty field is valid and does propagate: null means "no override", which
+ * is how the caller falls back to the export-based estimate.
+ */
+function SolarSizeField({ id, label, suffix, placeholder, value, onChange }) {
+  const [draft, setDraft] = useState(value == null ? '' : String(value));
+
+  // Re-sync when the value changes from outside this field. Compared as a
+  // number so a half-typed "6." is not rewritten to "6" under the cursor.
+  useEffect(() => {
+    const draftValue = draft.trim() === '' ? null : Number(draft);
+    const matches = value == null ? draftValue == null : draftValue === value;
+    if (!matches) setDraft(value == null ? '' : String(value));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  const trimmed = draft.trim();
+  const parsed = trimmed === '' ? null : Number(trimmed);
+  const outOfRange =
+    parsed != null &&
+    (!Number.isFinite(parsed) || parsed < MIN_SOLAR_KW || parsed > MAX_SOLAR_KW);
+
+  const errorId = `${id}-error`;
+
+  const handleChange = (raw) => {
+    setDraft(raw);
+
+    const next = raw.trim();
+    if (next === '') {
+      onChange(null); // clearing the override is a valid state
+      return;
+    }
+
+    const numeric = Number(next);
+    if (!Number.isFinite(numeric) || numeric < MIN_SOLAR_KW || numeric > MAX_SOLAR_KW) {
+      return; // hold the last valid value upstream — no recalculation
+    }
+    onChange(numeric);
+  };
+
+  return (
+    <div>
+      <label htmlFor={id} className="label">
+        {label}
+      </label>
+      <div className="relative">
+        <input
+          id={id}
+          type="number"
+          inputMode="decimal"
+          min={MIN_SOLAR_KW}
+          max={MAX_SOLAR_KW}
+          step={0.01}
+          placeholder={placeholder}
+          value={draft}
+          onChange={(e) => handleChange(e.target.value)}
+          aria-invalid={outOfRange}
+          aria-describedby={outOfRange ? errorId : undefined}
+          className={`field pr-12 ${outOfRange ? 'border-red-500 focus:border-red-500 focus:ring-red-500/25' : ''}`}
+        />
+        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm sm:text-xs text-ink-400 dark:text-ink-500">
+          {suffix}
+        </span>
+      </div>
+      {outOfRange && (
+        <p
+          id={errorId}
+          role="alert"
+          className="mt-1.5 text-sm sm:text-xs text-red-600 dark:text-red-400"
+        >
+          {SOLAR_RANGE_MESSAGE}
+        </p>
+      )}
+    </div>
   );
 }
 

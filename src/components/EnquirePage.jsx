@@ -3,7 +3,7 @@ import { currency0, number } from '../utils/formatters.js';
 import { downloadSummaryPdf } from '../services/summaryPdf.js';
 
 /** Replace with your Formspree form URL after creating the form. */
-const FORMSPREE_ENDPOINT = 'YOUR_FORMSPREE_ENDPOINT';
+const FORMSPREE_ENDPOINT = 'https://formspree.io/f/myegwvrw';
 
 const TOPICS = [
   'Understanding my solar estimate',
@@ -12,6 +12,34 @@ const TOPICS = [
   'Assessing my existing system\'s performance',
   'Something else',
 ];
+
+/** The option covering an existing-system review, found by meaning not index. */
+const EXISTING_SYSTEM_TOPIC = TOPICS.find((t) => /existing system/i.test(t)) ?? '';
+
+/**
+ * Wording used by callers that does not match an option verbatim. Stage 2 asks
+ * for a "performance review of my existing system", which is what the option
+ * above already means.
+ */
+const TOPIC_ALIASES = {
+  'performance review of my existing system': EXISTING_SYSTEM_TOPIC,
+};
+
+/**
+ * Topic pre-fill from `?topic=`.
+ *
+ * This is a radio group over a fixed list, so a value outside it would select
+ * nothing while still passing the "choose a topic" check — a pre-fill that
+ * looks applied but leaves the form empty. Anything unrecognised is ignored so
+ * the user simply picks for themselves.
+ */
+function topicFromUrl() {
+  const raw = new URLSearchParams(window.location.search).get('topic');
+  if (!raw) return '';
+
+  const key = raw.trim().toLowerCase();
+  return TOPICS.find((t) => t.toLowerCase() === key) ?? TOPIC_ALIASES[key] ?? '';
+}
 
 /**
  * Stage 3 — talk to a solar engineer.
@@ -30,7 +58,7 @@ export default function EnquirePage({ adviceContext, onBack }) {
     email: '',
     phone: '',
     postcode: String(postcodeDefault || ''),
-    topic: '',
+    topic: topicFromUrl(),
     message: '',
   });
   const [errors, setErrors] = useState({});

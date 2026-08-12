@@ -183,12 +183,19 @@ export default function App() {
     setStage(STAGE.LANDING);
   }, []);
 
-  const openEnquire = useCallback((summary = null) => {
+  /**
+   * @param {object|null} summary
+   * @param {{topic?: string|null}} [options] pre-selects the enquiry topic.
+   *   Destructured with a default so a caller that passes an event object in
+   *   this slot is harmless — existing callers pass nothing and are unchanged.
+   */
+  const openEnquire = useCallback((summary = null, { topic = null } = {}) => {
     if (summary) {
       setAdviceContext((prev) => ({ ...prev, summary }));
     }
     setStage(STAGE.ENQUIRE);
-    window.history.pushState({}, '', '/enquire');
+    const query = topic ? `?topic=${encodeURIComponent(topic)}` : '';
+    window.history.pushState({}, '', `/enquire${query}`);
   }, []);
 
   const handleAdviceMetrics = useCallback((stage2) => {
@@ -402,6 +409,7 @@ export default function App() {
               setEnquiryOpen(true);
             }}
             onAdviceMetrics={handleAdviceMetrics}
+            onTalkToEngineer={(topic) => openEnquire(null, { topic })}
           />
         );
 
