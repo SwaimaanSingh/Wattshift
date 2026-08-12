@@ -1,12 +1,23 @@
 /**
  * Enquiry submission.
  *
- * Formspree when an endpoint is configured, otherwise a mailto: link — which
- * needs no backend and works on every device. Either way nothing is stored by
- * the app itself.
+ * Posts to Web3Forms. Nothing is stored by the app itself.
+ *
+ * The mailto: helpers below are retained but no longer reached: they existed
+ * for the case where no endpoint was configured, and the endpoint is now
+ * fixed rather than read from the environment.
  */
 import { ENQUIRY_CONFIG } from '../config/defaults.js';
 import { currency0, kwh, number } from '../utils/formatters.js';
+
+const WEB3FORMS_ENDPOINT = 'https://api.web3forms.com/submit';
+
+/**
+ * Identifies the form to Web3Forms. Public by design — it travels in the
+ * request body from the browser and grants nothing beyond submitting to this
+ * one form. Same key as the advice form in EnquirePage.jsx.
+ */
+const WEB3FORMS_ACCESS_KEY = '74b058b2-25b6-4400-b825-29d993a83474';
 
 export const hasEnquiryEndpoint = () => Boolean(ENQUIRY_CONFIG.endpoint);
 
@@ -100,12 +111,9 @@ export function buildMailto(form, context, reference) {
 export async function submitEnquiry(form, context) {
   const reference = generateReference();
 
-  if (!ENQUIRY_CONFIG.endpoint) {
-    window.location.href = buildMailto(form, context, reference);
-    return { ok: true, reference, method: 'mailto' };
-  }
-
   const payload = {
+    access_key: WEB3FORMS_ACCESS_KEY,
+    subject: `WattShift quote request — ${reference}`,
     reference,
     name: form.name,
     email: form.email,
@@ -118,12 +126,19 @@ export async function submitEnquiry(form, context) {
     submittedAt: new Date().toISOString(),
   };
 
-  const res = await fetch(ENQUIRY_CONFIG.endpoint, {
+  const res = await fetch(WEB3FORMS_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(payload),
   });
 
-  if (!res.ok) throw new Error(`Submission failed (${res.status})`);
+  // Web3Forms can answer 200 with {success: false} — a rejected key or a spam
+  // block reads as a transport success, so the body decides whether the
+  // enquiry actually got through, not the status code alone.
+  const result = await res.json().catch(() => null);
+  if (!res.ok || !result?.success) {
+    throw new Error(result?.message || `Submission failed (${res.status})`);
+  }
+
   return { ok: true, reference, method: 'endpoint' };
 }
