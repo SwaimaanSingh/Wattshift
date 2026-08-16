@@ -383,6 +383,7 @@ export default function App() {
           <Stage2Landing
             stage1={stage1Summary}
             state={solarData?.state ?? 'SA'}
+            retailer={billData?.retailer ?? null}
             onProceed={handleStage2Proceed}
             onBack={handleStage2LandingBack}
           />

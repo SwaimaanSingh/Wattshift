@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import IntervalDataHelpModal from './IntervalDataHelpModal.jsx';
 import Nem12Upload from './Nem12Upload.jsx';
 import { kw, number } from '../../utils/formatters.js';
 
@@ -91,11 +92,19 @@ const METER_DATA_SOURCES = {
  * path, but it takes effort and a portal registration — so the alternative is
  * offered plainly rather than buried, and it says exactly what is lost.
  */
-export default function Stage2Landing({ stage1, state = 'SA', onProceed, onBack }) {
+export default function Stage2Landing({
+  stage1,
+  state = 'SA',
+  retailer = null,
+  onProceed,
+  onBack,
+}) {
   const [parsed, setParsed] = useState(null);
   const [showInstructions, setShowInstructions] = useState(false);
+  const [showRetailerHelp, setShowRetailerHelp] = useState(false);
   const [manualSolarKw, setManualSolarKw] = useState('');
   const [manualBatteryKwh, setManualBatteryKwh] = useState('');
+  const uploadRef = useRef(null);
 
   const source = METER_DATA_SOURCES[state] ?? METER_DATA_SOURCES.SA;
 
@@ -183,8 +192,19 @@ export default function Stage2Landing({ stage1, state = 'SA', onProceed, onBack 
         </p>
 
         <div className="mt-4">
-          <Nem12Upload onParsed={(result) => setParsed(result)} />
+          <Nem12Upload ref={uploadRef} onParsed={(result) => setParsed(result)} />
         </div>
+
+        {/* The retailer route. The distributor route, by state, stays in the
+            disclosure below — they are genuinely different sources, and most
+            people try the retailer they already have a login with first. */}
+        <button
+          type="button"
+          onClick={() => setShowRetailerHelp(true)}
+          className="btn-secondary mt-3 w-full"
+        >
+          How to download your interval data
+        </button>
 
         {parsed && (
           <button
@@ -290,6 +310,21 @@ export default function Stage2Landing({ stage1, state = 'SA', onProceed, onBack 
           Continue with bill data
         </button>
       </section>
+
+      <IntervalDataHelpModal
+        open={showRetailerHelp}
+        onClose={() => setShowRetailerHelp(false)}
+        detectedRetailer={retailer}
+        onHaveFile={() => {
+          setShowRetailerHelp(false);
+          // Deferred so the modal has unmounted and released the body scroll
+          // lock before the picker opens. A timer rather than
+          // requestAnimationFrame: rAF stops firing whenever the tab is not
+          // compositing, which would strand the customer on a closed modal
+          // with no file dialog — the same trap as BILL_FORMATS.md #10a.
+          setTimeout(() => uploadRef.current?.openFilePicker(), 0);
+        }}
+      />
     </div>
   );
 }

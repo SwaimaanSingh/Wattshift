@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
 import { Nem12Error, maskNmi, parseNem12File } from '../../services/nem12Parser.js';
 import { kwh, number } from '../../utils/formatters.js';
 
@@ -12,7 +12,7 @@ const MAX_FILE_MB = 60;
  * half-hourly readings, so progress is reported as it goes — a silent pause
  * on a file the customer had to go and fetch from a portal reads as a crash.
  */
-export default function Nem12Upload({ onParsed, onError }) {
+const Nem12Upload = forwardRef(function Nem12Upload({ onParsed, onError }, ref) {
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState({ stage: '', pct: null });
@@ -61,6 +61,16 @@ export default function Nem12Upload({ onParsed, onError }) {
     },
     [onParsed, onError]
   );
+
+  /**
+   * Lets the page open the file picker without the customer having to find the
+   * drop zone again — used by the "I have my file" button in the instructions
+   * modal. A no-op while parsing or once a file is read, since the input is not
+   * rendered in those states.
+   */
+  useImperativeHandle(ref, () => ({
+    openFilePicker: () => inputRef.current?.click(),
+  }));
 
   if (busy) {
     return (
@@ -177,7 +187,9 @@ export default function Nem12Upload({ onParsed, onError }) {
       )}
     </div>
   );
-}
+});
+
+export default Nem12Upload;
 
 /** What we found, before committing to the analysis. */
 function ParsedSummary({ result, onReplace }) {
